@@ -10,6 +10,7 @@ class CPU:
         self.ram = [0]*256
         self.reg = []
         self.pc = 0
+        self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111}
 
     def load(self):
         """Load a program into memory."""
@@ -45,7 +46,7 @@ class CPU:
     def ram_read(self, adr_to_read):
         return self.ram[adr_to_read]
     
-    def ram_write(self, value, adr_to_write):
+    def ram_write(self, adr_to_write, value):
         self.ram[adr_to_write] = value 
 
     def trace(self):
@@ -70,4 +71,21 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        IR = self.ram[self.pc]
+        operand_a = self.ram_read(self.ram[self.pc + 1])
+        operand_b = self.ram_read(self.ram[self.pc + 2])
+        halted = False
+        while not halted:
+            if IR == self.instructions['HLT']:
+                sys.exit(1)
+            elif IR == self.LDI:
+                reg_num = operand_a
+                val = operand_b
+                self.ram_write(reg_num, val)
+                self.pc +=3
+            elif IR == self.PRN:
+                val = self.ram[self.pc+1]
+                print(val)
+            else:
+                print('Unknown instruction')
+                sys.exit(1) 

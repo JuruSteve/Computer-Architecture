@@ -8,9 +8,9 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.ram = [0]*256
-        self.reg = []
+        self.reg = [0]*8
         self.pc = 0
-        self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111}
+        self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111, "ADD": 0b10100000, "MUL": 0b10100010, "PUSH": 0b01000101, "POP": 0b01000110} 
 
     def load(self):
         """Load a program into memory."""
@@ -47,8 +47,8 @@ class CPU:
         return self.ram[adr_to_read]
     
     def ram_write(self, adr_to_write, value):
-        self.ram[adr_to_write] = value 
-
+        self.ram[adr_to_write] = value
+        # return self.ram[adr_to_write]
     def trace(self):
         """
         Handy function to print out the CPU state. You might want to call this
@@ -71,21 +71,21 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        IR = self.ram[self.pc]
-        operand_a = self.ram_read(self.ram[self.pc + 1])
-        operand_b = self.ram_read(self.ram[self.pc + 2])
         halted = False
+
         while not halted:
-            if IR == self.instructions['HLT']:
-                sys.exit(1)
-            elif IR == self.LDI:
-                reg_num = operand_a
-                val = operand_b
-                self.ram_write(reg_num, val)
+            Ir = self.ram[self.pc]
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+            if Ir == self.instructions['HLT']:
+                halted = True
+            elif Ir == self.instructions['LDI']:
+                self.reg[operand_a] = operand_b
                 self.pc +=3
-            elif IR == self.PRN:
-                val = self.ram[self.pc+1]
+            elif Ir == self.instructions['PRN']:
+                val = self.reg[operand_a]
+                self.pc +=2
                 print(val)
             else:
                 print('Unknown instruction')
-                sys.exit(1) 
+                sys.exit(1)

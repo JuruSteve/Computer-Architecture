@@ -7,8 +7,9 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.register = [0]*256
-        self.PC = 0
+        self.ram = [0]*256
+        self.reg = []
+        self.pc = 0
 
     def load(self):
         """Load a program into memory."""
@@ -40,6 +41,12 @@ class CPU:
         #elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
+    
+    def ram_read(self, adr_to_read):
+        return self.ram[adr_to_read]
+    
+    def ram_write(self, value, adr_to_write):
+        self.ram[adr_to_write] = value 
 
     def trace(self):
         """

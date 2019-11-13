@@ -11,7 +11,8 @@ class CPU:
         self.reg = [0]*8
         self.pc = 0
         self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111, "ADD": 0b10100000, "MUL": 0b10100010, "PUSH": 0b01000101, "POP": 0b01000110} 
-
+    
+    # def run(self, file_instructions):
     def load(self):
         """Load a program into memory."""
 
@@ -28,24 +29,35 @@ class CPU:
             0b00000000,
             0b00000001, # HLT
         ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        new_commands = []
+        if len(sys.argv) != 2:
+            print("Usage: ls8.py filename")
+            sys.exit(1)
+        else:
+            address = 0
+            with open(f"examples/{sys.argv[1]}") as f:
+                for line in f:
+                    l = line.split('\n')[0].split('#')[0].strip()
+                    if line == '':
+                        continue
+                    new_commands.append(l)
+        for instruction in new_commands:
+            if instruction != '':
+                self.ram[address] = int(instruction, 2)
+                address += 1
 
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
     
     def ram_read(self, adr_to_read):
         return self.ram[adr_to_read]
-    
     def ram_write(self, adr_to_write, value):
         self.ram[adr_to_write] = value
         # return self.ram[adr_to_write]
@@ -86,6 +98,9 @@ class CPU:
                 val = self.reg[operand_a]
                 self.pc +=2
                 print(val)
+            elif Ir == self.instructions['MUL']:
+                self.alu('MUL', operand_a, operand_b)
+                self.pc +=3
             else:
                 print('Unknown instruction')
                 sys.exit(1)

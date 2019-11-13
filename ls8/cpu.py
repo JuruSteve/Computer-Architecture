@@ -10,6 +10,10 @@ class CPU:
         self.ram = [0]*256
         self.reg = [0]*8
         self.pc = 0
+        self.branch_table = {}
+        self.branch_table['PRN'] = self.handlePrint
+        self.branch_table['MUL'] = self.handleMulti
+        self.branch_table['LDI'] = self.handleADD
         self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111, "ADD": 0b10100000, "MUL": 0b10100010, "PUSH": 0b01000101, "POP": 0b01000110} 
     
     # def run(self, file_instructions):
@@ -80,6 +84,19 @@ class CPU:
             print(" %02X" % self.reg[i], end='')
 
         print()
+    
+    def handlePrint(self, reg_val):
+        val = self.reg[reg_val]
+        self.pc +=2
+        print(val)    
+        
+    def handleMulti(self, reg_val1, reg_val2):
+        self.alu('MUL', reg_val1, reg_val2)
+        self.pc +=3
+
+    def handleADD(self, reg_val1, reg_val2):
+        self.reg[reg_val1] = reg_val2
+        self.pc +=3
 
     def run(self):
         """Run the CPU."""
@@ -89,18 +106,15 @@ class CPU:
             Ir = self.ram[self.pc]
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
+
             if Ir == self.instructions['HLT']:
                 halted = True
             elif Ir == self.instructions['LDI']:
-                self.reg[operand_a] = operand_b
-                self.pc +=3
+                self.branch_table['LDI'](operand_a, operand_b)
             elif Ir == self.instructions['PRN']:
-                val = self.reg[operand_a]
-                self.pc +=2
-                print(val)
+                self.branch_table['PRN'](operand_a)
             elif Ir == self.instructions['MUL']:
-                self.alu('MUL', operand_a, operand_b)
-                self.pc +=3
+                self.branch_table['MUL'](operand_a, operand_b)
             else:
                 print('Unknown instruction')
                 sys.exit(1)

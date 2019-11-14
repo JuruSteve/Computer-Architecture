@@ -18,15 +18,17 @@ class CPU:
         self.reg = [0]*8
         self.pc = 0
         self.s_pointer = 7
+        self.stopped = False
         self.reg[self.s_pointer] = 0xF4
-        self.branch_table = {}
-        self.branch_table[HLT] = self.handleHalt
-        self.branch_table[LDI] = self.handleLDI
-        self.branch_table[PRN] = self.handlePrint
-        self.branch_table[MUL] = self.handleMulti
-        self.branch_table[PUSH] = self.handlePush
-        self.branch_table[POP] = self.handlePop
-
+        self.branch_table = {
+            HLT: self.handleHalt, 
+            LDI: self.handleLDI,
+            PRN: self.handlePrint,
+            MUL: self.handleMulti,
+            PUSH: self.handlePush,
+            POP: self.handlePop
+        }
+        
     def load(self):
         """Load a program into memory."""
         address = 0
@@ -80,8 +82,8 @@ class CPU:
             print(" %02X" % self.reg[i], end='')
 
         print()
-    def handlePrint(self, reg_val):
-        val = self.reg[reg_val]
+    def handlePrint(self, reg_val1, reg_val2):
+        val = self.reg[reg_val1]
         self.pc +=2
         print(val)      
     def handleMulti(self, reg_val1, reg_val2):
@@ -90,39 +92,32 @@ class CPU:
     def handleLDI(self, reg_val1, reg_val2):
         self.reg[reg_val1] = reg_val2
         self.pc +=3
-    def handleHalt(self, stopped):
-        stopped = True
+    def handleHalt(self, reg_val1, reg_val2):
+        self.stopped = True
         print('Stopping program')
         sys.exit(1)        
     def handleADD(self, reg_val1, reg_val2):
         self.alu('ADD', reg_val1, reg_val2)
         self.pc += 3
-    def handlePush(self, reg_num):
+    def handlePush(self, reg_num, reg_num2):
         self.reg[self.s_pointer] -= 1        
         val = self.reg[reg_num]
         self.ram[self.reg[self.s_pointer]] = val
         self.pc += 2
-    def handlePop(self, reg_num):
+    def handlePop(self, reg_num, reg_num2):
         val = self.ram[self.reg[self.s_pointer]]
         self.reg[reg_num] = val
         self.reg[self.s_pointer] += 1
         self.pc += 2
     def run(self):
         """Run the CPU."""
-        stopped = False
-        while not stopped:
+
+        while not self.stopped:
             Ir = self.ram_read(self.pc)
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             if Ir in self.branch_table:
-                if self.branch_table[Ir] == self.handlePrint:
-                    self.branch_table[Ir](operand_a)
-                elif self.branch_table[Ir] ==self.handleHalt:
-                    self.branch_table[Ir](stopped)
-                elif self.branch_table[Ir] ==self.handlePush or self.branch_table[Ir] ==self.handlePop:
-                    self.branch_table[Ir](operand_a)
-                else:
-                    self.branch_table[Ir](operand_a, operand_b)
+                self.branch_table[Ir](operand_a, operand_b)
             else:
                 print('Unknown instruction', Ir)
                 sys.exit(1)

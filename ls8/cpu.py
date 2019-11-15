@@ -10,7 +10,10 @@ POP =  0b01000110
 PUSH =  0b01000101
 CALL = 0b01010000
 RET = 0b00010001
-
+CMP = 0b10100111
+JEQ = 0b1010101
+JNE = 0b01010110
+JMP = 0b01010100
 class CPU:
     """Main CPU class."""
 
@@ -31,8 +34,13 @@ class CPU:
             POP: self.handlePop,
             CALL: self.handleCall,
             ADD: self.handleADD,
-            RET: self.handleRET
+            RET: self.handleRET,
+            CMP: self.handleCMP,
+            JEQ: self.handleJEQ,
+            JNE: self.handleJNE,
+            JMP: self.handleJMP
         }
+        self.fl = 0b00000000
 
     def load(self):
         """Load a program into memory."""
@@ -59,8 +67,19 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "CMP":
+            val = self.reg[reg_a] - self.reg[reg_b]
+            if val == 0:
+                self.fl = 0b00000001
+            else:
+                self.fl = 0b00000000
+        elif op == "AND":
+            self.reg[reg_a] &= self.reg[reg_b]
+        elif op == "OR":
+            self.reg[reg_a] |= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
+
     def ram_read(self, adr_to_read):
         return self.ram[adr_to_read]
     def ram_write(self, adr_to_write, value):
@@ -119,6 +138,27 @@ class CPU:
     def handleRET(self, reg_val, reg_val2):
         self.pc =  self.ram[self.reg[self.s_pointer]]
         self.reg[self.s_pointer] += 1
+    def handleCMP(self, reg_val, reg_val2):
+        self.alu('CMP', reg_val, reg_val2)
+        self.pc += 3
+    def handleJMP(self, reg_val, reg_val2):
+        reg_addr = self.ram[self.pc+1]
+        self.pc = self.reg[reg_addr]
+
+    def handleJEQ(self, reg_val, reg_val2):
+        if self.fl == 0b00000001:
+            reg_addr = self.ram[self.pc+1]
+            val = self.reg[reg_addr]
+            self.pc = val
+        else:
+            self.pc += 2
+
+    def handleJNE(self, reg_val, reg_val2):
+        if self.fl == 0b00000000:
+            self.handleJMP(reg_val, reg_val2)
+        else:
+            self.pc += 2
+
     def run(self):
         """Run the CPU."""
         while not self.stopped:
@@ -126,7 +166,6 @@ class CPU:
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             if Ir in self.branch_table:
-                # print(bin(Ir))
                 self.branch_table[Ir](operand_a, operand_b)
             else:
                 print('Unknown instruction', Ir)

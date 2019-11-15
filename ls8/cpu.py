@@ -8,6 +8,8 @@ ADD =  0b10100000
 MUL =  0b10100010
 POP =  0b01000110
 PUSH =  0b01000101
+CALL = 0b01010000
+RET = 0b00010001
 
 class CPU:
     """Main CPU class."""
@@ -26,9 +28,12 @@ class CPU:
             PRN: self.handlePrint,
             MUL: self.handleMulti,
             PUSH: self.handlePush,
-            POP: self.handlePop
+            POP: self.handlePop,
+            CALL: self.handleCall,
+            ADD: self.handleADD,
+            RET: self.handleRET
         }
-        
+
     def load(self):
         """Load a program into memory."""
         address = 0
@@ -54,8 +59,6 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
-        elif op == "LDI":
-            self.handleLDI(reg_a, reg_b)
         else:
             raise Exception("Unsupported ALU operation")
     def ram_read(self, adr_to_read):
@@ -94,7 +97,6 @@ class CPU:
         self.pc +=3
     def handleHalt(self, reg_val1, reg_val2):
         self.stopped = True
-        print('Stopping program')
         sys.exit(1)        
     def handleADD(self, reg_val1, reg_val2):
         self.alu('ADD', reg_val1, reg_val2)
@@ -109,14 +111,22 @@ class CPU:
         self.reg[reg_num] = val
         self.reg[self.s_pointer] += 1
         self.pc += 2
+    def handleCall(self, reg_val, reg_val2):
+        return_address = self.pc + 2
+        self.reg[self.s_pointer] -= 1        
+        self.ram[self.reg[self.s_pointer]] = return_address
+        self.pc = self.reg[reg_val]
+    def handleRET(self, reg_val, reg_val2):
+        self.pc =  self.ram[self.reg[self.s_pointer]]
+        self.reg[self.s_pointer] += 1
     def run(self):
         """Run the CPU."""
-
         while not self.stopped:
             Ir = self.ram_read(self.pc)
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             if Ir in self.branch_table:
+                # print(bin(Ir))
                 self.branch_table[Ir](operand_a, operand_b)
             else:
                 print('Unknown instruction', Ir)

@@ -10,28 +10,33 @@ class CPU:
         self.ram = [0]*256
         self.reg = [0]*8
         self.pc = 0
-        self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111, "ADD": 0b10100000, "MUL": 0b10100010, "PUSH": 0b01000101, "POP": 0b01000110} 
+        self.instructions = {'HLT':0b00000001, 'LDI': 0b10000010, 'PRN': 0b01000111, "ADD": 0b10100000, "MUL": 0b10100010, "PUSH": 0b01000101, "POP": 0b01000110}
+        self.branch_table = {}
+        self.branch_table['PRN'] = self.handlePrint
+        self.branch_table['MUL'] = self.handleMulti
+        self.branch_table['LDI'] = self.handleADD
 
     def load(self):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        new_commands = []
+        if len(sys.argv) != 2:
+            print("Usage: ls8.py filename")
+            sys.exit(1)
+        else:
+            address = 0
+            with open(f"examples/{sys.argv[1]}") as f:
+                for line in f:
+                    l = line.split('\n')[0].split('#')[0].strip()
+                    if line == '':
+                        continue
+                    new_commands.append(l)
+        for instruction in new_commands:
+            if instruction != '':
+                self.ram[address] = int(instruction, 2)
+                address += 1
 
 
     def alu(self, op, reg_a, reg_b):
@@ -39,7 +44,8 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
     
@@ -69,6 +75,20 @@ class CPU:
 
         print()
 
+
+    def handleMulti(self, reg_val1, reg_val2):
+        self.alu('MUL', reg_val1, reg_val2)
+        self.pc +=3
+
+    def handlePrint(self, reg_val):
+        val = self.reg[reg_val]
+        self.pc +=2
+        print(val)    
+    
+    def handleADD(self, reg_val1, reg_val2):
+        self.reg[reg_val1] = reg_val2
+        self.pc +=3
+
     def run(self):
         """Run the CPU."""
         halted = False
@@ -80,12 +100,11 @@ class CPU:
             if Ir == self.instructions['HLT']:
                 halted = True
             elif Ir == self.instructions['LDI']:
-                self.reg[operand_a] = operand_b
-                self.pc +=3
+                self.branch_table['LDI'](operand_a, operand_b)
             elif Ir == self.instructions['PRN']:
-                val = self.reg[operand_a]
-                self.pc +=2
-                print(val)
+                self.branch_table['PRN'](operand_a)
+            elif Ir == self.instructions['MUL']:
+                self.branch_table['MUL'](operand_a, operand_b)
             else:
                 print('Unknown instruction')
                 sys.exit(1)

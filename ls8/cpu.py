@@ -1,45 +1,90 @@
 """CPU functionality."""
-
 import sys
 
+HLT = 0b00000001
+LDI =  0b10000010
+PRN =  0b01000111
+ADD =  0b10100000
+MUL =  0b10100010
+POP =  0b01000110
+PUSH =  0b01000101
+CALL = 0b01010000
+RET = 0b00010001
+CMP = 0b10100111
+JEQ = 0b1010101
+JNE = 0b01010110
+JMP = 0b01010100
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.ram = [0]*256
+        self.reg = [0]*8
+        self.pc = 0
+        self.s_pointer = 7
+        self.stopped = False
+        self.reg[self.s_pointer] = 0xF4
+        self.branch_table = {
+            HLT: self.handleHalt, 
+            LDI: self.handleLDI,
+            PRN: self.handlePrint,
+            MUL: self.handleMulti,
+            PUSH: self.handlePush,
+            POP: self.handlePop,
+            CALL: self.handleCall,
+            ADD: self.handleADD,
+            RET: self.handleRET,
+            CMP: self.handleCMP,
+            JEQ: self.handleJEQ,
+            JNE: self.handleJNE,
+            JMP: self.handleJMP
+        }
+        self.fl = 0b00000000
 
     def load(self):
         """Load a program into memory."""
-
         address = 0
-
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
-
-
+        new_commands = []
+        if len(sys.argv) != 2:
+            print("Usage: ls8.py filename")
+            sys.exit(1)
+        else:
+            address = 0
+            with open(f"examples/{sys.argv[1]}") as f:
+                for line in f:
+                    l = line.split('\n')[0].split('#')[0].strip()
+                    if line == '':
+                        continue
+                    new_commands.append(l)
+        for instruction in new_commands:
+            if instruction != '':
+                self.ram[address] = int(instruction, 2)
+                address += 1
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "CMP":
+            val = self.reg[reg_a] - self.reg[reg_b]
+            if val == 0:
+                self.fl = 0b00000001
+            else:
+                self.fl = 0b00000000
+        elif op == "AND":
+            self.reg[reg_a] &= self.reg[reg_b]
+        elif op == "OR":
+            self.reg[reg_a] |= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
+    def ram_read(self, adr_to_read):
+        return self.ram[adr_to_read]
+    def ram_write(self, adr_to_write, value):
+        self.ram[adr_to_write] = value
+        # return self.ram[adr_to_write]
     def trace(self):
         """
         Handy function to print out the CPU state. You might want to call this
@@ -59,7 +104,69 @@ class CPU:
             print(" %02X" % self.reg[i], end='')
 
         print()
+    def handlePrint(self, reg_val1, reg_val2):
+        val = self.reg[reg_val1]
+        self.pc +=2
+        print(val)      
+    def handleMulti(self, reg_val1, reg_val2):
+        self.alu('MUL', reg_val1, reg_val2)
+        self.pc +=3
+    def handleLDI(self, reg_val1, reg_val2):
+        self.reg[reg_val1] = reg_val2
+        self.pc +=3
+    def handleHalt(self, reg_val1, reg_val2):
+        self.stopped = True
+        sys.exit(1)        
+    def handleADD(self, reg_val1, reg_val2):
+        self.alu('ADD', reg_val1, reg_val2)
+        self.pc += 3
+    def handlePush(self, reg_num, reg_num2):
+        self.reg[self.s_pointer] -= 1        
+        val = self.reg[reg_num]
+        self.ram[self.reg[self.s_pointer]] = val
+        self.pc += 2
+    def handlePop(self, reg_num, reg_num2):
+        val = self.ram[self.reg[self.s_pointer]]
+        self.reg[reg_num] = val
+        self.reg[self.s_pointer] += 1
+        self.pc += 2
+    def handleCall(self, reg_val, reg_val2):
+        return_address = self.pc + 2
+        self.reg[self.s_pointer] -= 1        
+        self.ram[self.reg[self.s_pointer]] = return_address
+        self.pc = self.reg[reg_val]
+    def handleRET(self, reg_val, reg_val2):
+        self.pc =  self.ram[self.reg[self.s_pointer]]
+        self.reg[self.s_pointer] += 1
+    def handleCMP(self, reg_val, reg_val2):
+        self.alu('CMP', reg_val, reg_val2)
+        self.pc += 3
+    def handleJMP(self, reg_val, reg_val2):
+        reg_addr = self.ram[self.pc+1]
+        self.pc = self.reg[reg_addr]
+
+    def handleJEQ(self, reg_val, reg_val2):
+        if self.fl == 0b00000001:
+            reg_addr = self.ram[self.pc+1]
+            val = self.reg[reg_addr]
+            self.pc = val
+        else:
+            self.pc += 2
+
+    def handleJNE(self, reg_val, reg_val2):
+        if self.fl == 0b00000000:
+            self.handleJMP(reg_val, reg_val2)
+        else:
+            self.pc += 2
 
     def run(self):
         """Run the CPU."""
-        pass
+        while not self.stopped:
+            Ir = self.ram_read(self.pc)
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+            if Ir in self.branch_table:
+                self.branch_table[Ir](operand_a, operand_b)
+            else:
+                print('Unknown instruction', Ir)
+                sys.exit(1)
